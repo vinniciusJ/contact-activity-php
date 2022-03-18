@@ -13,20 +13,47 @@
             $this->connection = $connection;
         }
 
+        private function execute_query($query, $error_message = "Um erro ocorreu ao executar a ação"){
+            $result = $this->connection->query($query);
+
+            if(!$result){
+                throw new Exception($error_message);
+            }
+
+            return $result;
+        }
+
         function create($name, $phone_number, $email, $cpf, $birth_date){
             $age = get_age_by_bday($birth_date);
 
-            $string_query = "INSERT INTO contacts (name, phone_number, email, cpf, age, birth_date) VALUES ('$name', '$phone_number', '$email', '$cpf', '$age', '$birth_date')";
+            $string_query = "INSERT INTO contacts (name, phone_number, email, CPF, age, birth_date) VALUES ('$name', '$phone_number', '$email', '$cpf', '$age', '$birth_date')";
 
-            $result = $this->connection->query($string_query);
+            return $this->execute_query($string_query);
+        }
 
-            if(!$result){
-                throw new Exception("An error ocurred while creating the new contact");
-            }
+        function update($id, $name, $phone_number, $email, $cpf, $birth_date){
+            $age = get_age_by_bday($birth_date);
+
+            $string_query = "UPDATE contacts SET name = $name, phone_number = $phone_number, email = $email, CPF = $cpf, age = $age, birth_date = $birth_date WHERE id = $id";
+
+            return $this->execute_query($string_query);
+        }
+
+        function index(){
+            $string_query = "SELECT * FROM contacts";
+            $result = $this->execute_query($string_query);
+
+            return $result->fetch_all(MYSQLI_ASSOC);
+        }
+
+        function delete($id){
+            $string_query = "DELETE FROM contacts WHERE id = $id";
+
+            return $this->execute_query($string_query);
         }
     }
 
-    function create_contact($contact_controller){
+    function create_contact($controller){
         $name = $_POST['name'];
         $phone_number = $_POST['phone_number'];
         $email = $_POST['email'];
@@ -34,15 +61,59 @@
         $birth_date = $_POST['birth_date'];
 
         try{
-            $contact_controller->create($name, $phone_number, $email, $cpf, $birth_date);
-
-            $_SESSION['creation-sucecced'] = true;
+            $controller->create($name, $phone_number, $email, $cpf, $birth_date);
         }
         catch(Exception $e){
-            $_SESSION['creation-sucecced'] = false;
+            $_SESSION['error-message'] = $e->getMessage();
         }
 
         header('Location: ../contact.php');
+    }
+
+    function list_contacts($controller){
+        $contacts = [];
+
+        try{
+            $contacts = $controller->index();    
+        }
+        catch(Exception $e){
+            $_SESSION['error-message'] = $e->getMessage();
+        }
+
+        $_SESSION['contacts'] = $contacts;
+
+        header('Location: ../index.php');
+    }
+
+    function update_contact($controller){
+        $id = $_POST['id'];
+        $name = $_POST['name'];
+        $phone_number = $_POST['phone_number'];
+        $email = $_POST['email'];
+        $cpf = $_POST['CPF'];
+        $birth_date = $_POST['birth_date'];
+
+        try{
+            $controller->update($id, $name, $phone_number, $email, $cpf, $birth_date);
+        }
+        catch(Exception $e){
+            $_SESSION['error-message'] = $e->getMessage();
+        }
+
+        header('Location: ../index.php');
+    }
+
+    function delete_contact($controller){
+        $id = $_POST['id'];
+
+        try{
+            $controller->delete($id);
+        }
+        catch(Exception $e){
+            $_SESSION['error-message'] = $e->getMessage();
+        }
+
+        header('Location: ../index.php');
     }
 
     $contact_controller = new ContactController($connection);
@@ -51,6 +122,15 @@
     switch($action){
         case 'create':
             create_contact($contact_controller);
+            break;
+        case 'delete':
+            delete_contact($contact_controller);
+            break;
+        case 'update':
+            update_contact($contact_controller);
+            break;
+        default:
+            list_contacts($contact_controller);
             break;
     }
 ?>
